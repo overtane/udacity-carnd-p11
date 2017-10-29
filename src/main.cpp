@@ -1,19 +1,20 @@
 
 #include "helpers.h"
 #include "path_planner.h"
+#include "HighwayMap.h"
+#include "Vehicle.h"
+#include "TrajectoryGenerator.h"
 
-#include <fstream>
-#include <math.h>
 #include <uWS/uWS.h>
 #include <chrono>
-#include <iostream>
 #include <thread>
 #include <vector>
-#include "Eigen-3.3/Eigen/Core"
-#include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 
-using namespace std;
+using std::vector;
+using std::cout;
+using std::endl;
+using std::string;
 
 // for convenience
 using json = nlohmann::json;
@@ -33,166 +34,29 @@ string hasData(string s) {
   return "";
 }
 
-double distance(double x1, double y1, double x2, double y2)
-{
-	return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
-}
-int ClosestWaypoint(double x, double y, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-
-	double closestLen = 100000; //large number
-	int closestWaypoint = 0;
-
-	for(int i = 0; i < maps_x.size(); i++)
-	{
-		double map_x = maps_x[i];
-		double map_y = maps_y[i];
-		double dist = distance(x,y,map_x,map_y);
-		if(dist < closestLen)
-		{
-			closestLen = dist;
-			closestWaypoint = i;
-		}
-
-	}
-
-	return closestWaypoint;
-
-}
-
-int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-
-	int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
-
-	double map_x = maps_x[closestWaypoint];
-	double map_y = maps_y[closestWaypoint];
-
-	double heading = atan2( (map_y-y),(map_x-x) );
-
-	double angle = abs(theta-heading);
-
-	if(angle > pi()/4)
-	{
-		closestWaypoint++;
-	}
-
-	return closestWaypoint;
-
-}
-
-// Transform from Cartesian x,y coordinates to Frenet s,d coordinates
-vector<double> getFrenet(double x, double y, double theta, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-	int next_wp = NextWaypoint(x,y, theta, maps_x,maps_y);
-
-	int prev_wp;
-	prev_wp = next_wp-1;
-	if(next_wp == 0)
-	{
-		prev_wp  = maps_x.size()-1;
-	}
-
-	double n_x = maps_x[next_wp]-maps_x[prev_wp];
-	double n_y = maps_y[next_wp]-maps_y[prev_wp];
-	double x_x = x - maps_x[prev_wp];
-	double x_y = y - maps_y[prev_wp];
-
-	// find the projection of x onto n
-	double proj_norm = (x_x*n_x+x_y*n_y)/(n_x*n_x+n_y*n_y);
-	double proj_x = proj_norm*n_x;
-	double proj_y = proj_norm*n_y;
-
-	double frenet_d = distance(x_x,x_y,proj_x,proj_y);
-
-	//see if d value is positive or negative by comparing it to a center point
-
-	double center_x = 1000-maps_x[prev_wp];
-	double center_y = 2000-maps_y[prev_wp];
-	double centerToPos = distance(center_x,center_y,x_x,x_y);
-	double centerToRef = distance(center_x,center_y,proj_x,proj_y);
-
-	if(centerToPos <= centerToRef)
-	{
-		frenet_d *= -1;
-	}
-
-	// calculate s value
-	double frenet_s = 0;
-	for(int i = 0; i < prev_wp; i++)
-	{
-		frenet_s += distance(maps_x[i],maps_y[i],maps_x[i+1],maps_y[i+1]);
-	}
-
-	frenet_s += distance(0,0,proj_x,proj_y);
-
-	return {frenet_s,frenet_d};
-
-}
-
-// Transform from Frenet s,d coordinates to Cartesian x,y
-vector<double> getXY(double s, double d, const vector<double> &maps_s, const vector<double> &maps_x, const vector<double> &maps_y)
-{
-	int prev_wp = -1;
-
-	while(s > maps_s[prev_wp+1] && (prev_wp < (int)(maps_s.size()-1) ))
-	{
-		prev_wp++;
-	}
-
-	int wp2 = (prev_wp+1)%maps_x.size();
-
-	double heading = atan2((maps_y[wp2]-maps_y[prev_wp]),(maps_x[wp2]-maps_x[prev_wp]));
-	// the x,y,s along the segment
-	double seg_s = (s-maps_s[prev_wp]);
-
-	double seg_x = maps_x[prev_wp]+seg_s*cos(heading);
-	double seg_y = maps_y[prev_wp]+seg_s*sin(heading);
-
-	double perp_heading = heading-pi()/2;
-
-	double x = seg_x + d*cos(perp_heading);
-	double y = seg_y + d*sin(perp_heading);
-
-	return {x,y};
-
-}
+// The max s value before wrapping around the track back to 0
+const double max_s = 6945.554;
+// Road parameters are constant in this project, but
+// in reality road parameters vary from one road segment to another.
+const int n_lanes = 3;
+const double lane_width = 4.0; // meters
+const double speed_limit = mph2ms(50); // meters per second
 
 
 int main() {
   uWS::Hub h;
 
-  // Load up map values for waypoint's x,y,s and d normalized normal vectors
-  vector<vector<double>> waypoints(5);
+  // Setup simulation environment
+  HighwayMap hwmap("../data/highway_map.csv", n_lanes, lane_width, speed_limit);
+  hwmap.set_circular(max_s);
 
-  // Waypoint map to read from
-  string map_file_ = "../data/highway_map.csv";
-  // The max s value before wrapping around the track back to 0
-  double max_s = 6945.554;
+  TrajectoryGenerator tg;
 
-  ifstream in_map_(map_file_.c_str(), ifstream::in);
+  Vehicle car;
+  car.set_route(&hwmap);
+  car.set_trajectory_generator(&tg);
 
-  string line;
-  while (getline(in_map_, line)) {
-  	istringstream iss(line);
-  	double x;
-  	double y;
-  	float s;
-  	float d_x;
-  	float d_y;
-  	iss >> x;
-  	iss >> y;
-  	iss >> s;
-  	iss >> d_x;
-  	iss >> d_y;
-  	waypoints[0].push_back(x);
-  	waypoints[1].push_back(y);
-  	waypoints[2].push_back(s);
-  	waypoints[3].push_back(d_x);
-  	waypoints[4].push_back(d_y);
-  }
-
-  h.onMessage([&waypoints](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  h.onMessage([&car](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -211,32 +75,34 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
 
-                Telemetry car;
+                Telemetry tm;
           
         	// Main car's localization Data
-          	car.x = j[1]["x"];
-          	car.y = j[1]["y"];
-          	car.s = j[1]["s"];
-          	car.d = j[1]["d"];
-          	car.yaw = j[1]["yaw"];
-          	car.speed = j[1]["speed"];
+          	tm.x = j[1]["x"];
+          	tm.y = j[1]["y"];
+          	tm.s = j[1]["s"];
+          	tm.d = j[1]["d"];
+          	tm.yaw = j[1]["yaw"];
+          	tm.speed = j[1]["speed"];
 
           	// Previous path data given to the Planner
           	vector<vector<double>> prev_path {j[1]["previous_path_x"], j[1]["previous_path_y"]};
 
           	// Previous path's end s and d values 
-                vector<double> end_path {j[1]["end_path_s"], j[1]["end_path_d"]};
+                //vector<double> end_path {j[1]["end_path_s"], j[1]["end_path_d"]};
 
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
           	vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
 
-          	json msgJson;
+                car.update_status(tm, sensor_fusion); 
+                car.update_state(); // behavior planning
 
-          	vector<vector<double>> next_path(2);
+          	vector<vector<double>> next_path = car.new_trajectory(prev_path);
 
                 // Plan the next trajectory for the ego car.
-                next_path = plan(car, prev_path, end_path, sensor_fusion, waypoints);
+                //next_path = plan(tm, prev_path, sensor_fusion, hwmap);
 
+          	json msgJson;
           	msgJson["next_x"] = next_path[0];
           	msgJson["next_y"] = next_path[1];
 
@@ -244,7 +110,6 @@ int main() {
 
           	//this_thread::sleep_for(chrono::milliseconds(1000));
           	ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          
         }
       } else {
         // Manual driving

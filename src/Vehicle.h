@@ -61,6 +61,7 @@ private:
     // front and at behind of the ego vehicle for each lane
     void update_env(const vector<vector<double>> &sensor_fusion);
 
+    double speed_in_front(int lane) const;
     double free_space_in_front(int lane) const;
 
     double free_space_at_behind(int lane) const;

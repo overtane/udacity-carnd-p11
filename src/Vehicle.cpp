@@ -26,6 +26,13 @@ Vehicle::Vehicle() :
     tg(0)
 {}   
 
+double Vehicle::speed_in_front(int lane) const
+{
+    double vx = this->env[lane].in_front[3];
+    double vy = this->env[lane].in_front[4];
+    return sqrt(vx*vx + vy*vy);   
+}
+
 double Vehicle::free_space_in_front(int lane) const
 {
     double space = 0.0;
@@ -116,10 +123,32 @@ void Vehicle::update_status(const Telemetry &t, const vector<vector<double>> &se
 
 
 void Vehicle::update_state() {
-
+     
     this->state = VehicleState::KEEP_LANE;
+    /*
+    double free_space = this->free_space_in_front(this->lane);
 
-    this->realize_keep_lane();
+    this->target_speed = route->get_speed_limit() - 0.5;
+    this->target_lane = this->lane;
+
+    if (free_space < route->get_safety_distance() + speed) {
+        // space on right
+        if (this->lane >= 0 && this->lane < this->route->get_n_lanes()-1) { 
+            free_space = this->free_space_in_front(this->lane+1);
+            if (free_space > route->get_safety_distance()) {
+                this->state = VehicleState::CHANGE_LANE_RIGHT;
+                this->target_lane = this->lane+1;
+            }
+        } else if (this->lane > 0) {
+            free_space = this->free_space_in_front(this->lane-1);
+            if (free_space > route->get_safety_distance()) {
+                this->state = VehicleState::CHANGE_LANE_LEFT;
+                this->target_lane = this->lane-1;
+            }
+        }
+    }
+    */
+    realize_keep_lane();
 }
 
 void Vehicle::realize_keep_lane()
@@ -128,10 +157,10 @@ void Vehicle::realize_keep_lane()
 
     if (free_space > route->get_safety_distance() + speed) {
         // accelerate and keep max speed
-        this->target_speed = route->get_speed_limit() - 0.5;
+        this->target_speed = route->get_speed_limit() - 0.25;
     } else {
-        // decelerate and follow the car in the front
-        this->target_speed = route->get_speed_limit() - 0.5;
+        // decelerate and follow the car in the front        
+        this->target_speed = this->speed_in_front(this->lane);
     }
 
     this->target_lane = this->lane; 

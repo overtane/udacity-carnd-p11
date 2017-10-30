@@ -60,7 +60,7 @@ public:
     int get_lane(double d) const { return int(d/this->lane_width); }
     double get_lane_center(int lane) const { return lane * this->lane_width + this->lane_width/2; }
     double get_speed_limit() const { return speed_limit; }
-    double get_safety_distance() const { return speed_limit * 2.5; }
+    double get_safety_distance() const { return speed_limit * .75; }
     bool is_circular() const { return fabs(wrap) < 1; }
   
     // Convert a Frenet (s,d) position to Cartesian (x,y) position 

@@ -1,10 +1,13 @@
 
+#include "helpers.h"
+
 #include "HighwayMap.h"
 
 #include <fstream>
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <cmath>
 
 using std::ifstream;
 using std::istringstream; 
@@ -13,6 +16,7 @@ HighwayMap::HighwayMap(string filename, int n_lanes, double lane_width, double s
     n_lanes(n_lanes),
     lane_width(lane_width),
     speed_limit(speed_limit),
+    circular(0.0),
     wrap(0.0),
     waypoints(5),
     spl(5)
@@ -56,13 +60,18 @@ bool HighwayMap::load_map(string filename)
 
 vector<double> HighwayMap::frenet2cartesian(const vector<double> sd) const
 {
-    double s = sd[0];
+    double s = (this->circular) ? fmod(sd[0],this->wrap) : sd[0];
     double d = sd[1];
 
-    double x = spl[Xi](s) + spl[Dxi](s) * d; 
-    double y = spl[Yi](s) + spl[Dyi](s) * d; 
+    //std::cout << s << " " << d << " " << this->wrap <<std::endl;
 
-    return { x, y };
+    //double x = spl[Xi](s) + spl[Dxi](s) * d; 
+    //double y = spl[Yi](s) + spl[Dyi](s) * d; 
+    //return { x, y };
+
+    return getXY(s, d, waypoints[Si], waypoints[Xi], waypoints[Yi]);
+
+
 }
 
 

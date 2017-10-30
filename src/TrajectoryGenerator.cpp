@@ -50,10 +50,10 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     for (int i = first_reuse; i<t_size && i<first_reuse+reuse_size; i++) {
         next_path[X].push_back(this->t[X][i]);
         next_path[Y].push_back(this->t[Y][i]);
-        cout << "old point: " << this->t[X][i] << " " << this->t[Y][i] << endl;
+        //cout << "old point: " << this->t[X][i] << " " << this->t[Y][i] << endl;
     } 
 
-    cout << path_size << " " << reuse_size << endl;
+    //cout << path_size << " " << reuse_size << endl;
 
     vector<vector<double>> spts(2); // spline points
 
@@ -78,31 +78,37 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
         spts[X].push_back(0.0);
         spts[Y].push_back(0.0);
     }
+ 
+    int target_lane = car.target_lane;
 
-    double center = route->get_lane_center(car.target_lane); 
-    cout << "car:" << car.sd[0] << ", " << car.sd[1] << endl;
+    double center = route->get_lane_center(target_lane); 
+    if (target_lane == 0)
+        center +=.4;
+    else if (target_lane == route->get_n_lanes())
+        center -=.4;
+    //cout << "car:" << car.sd[0] << ", " << car.sd[1] << endl;
 
-    vector<double> next0 = route->frenet2cartesian( {car.sd[0]+30, center} );
-    cout << next0[X] << " " << next0[Y] << endl;
+    vector<double> next0 = route->frenet2cartesian( {car.sd[0]+45, center} );
+    //cout << next0[X] << " " << next0[Y] << endl;
     next0 = global2car(next0, ref);
-    cout << next0[X] << " " << next0[Y] << endl;
+    //cout << next0[X] << " " << next0[Y] << endl;
     spts[X].push_back(next0[X]);
     spts[Y].push_back(next0[Y]);
 
-    vector<double> next1 = route->frenet2cartesian( {car.sd[0]+60, center});
-    cout << next1[X] << " " << next1[Y] << endl;
+    vector<double> next1 = route->frenet2cartesian( {car.sd[0]+90, center});
+    //cout << next1[X] << " " << next1[Y] << endl;
     next1 = global2car(next1, ref);
-    cout << next1[X] << " " << next1[Y] << endl;
+    //cout << next1[X] << " " << next1[Y] << endl;
     spts[X].push_back(next1[X]);
     spts[Y].push_back(next1[Y]);
 
     spline sp;
     sp.set_points(spts[X], spts[Y]);
 
-    cout << "---" << endl;
+    //cout << "---" << endl;
 
     // spline spacing
-    double target_x = 30.0;
+    double target_x = 45.0;
     double target_y = sp(target_x);
         // note: straight line distance
     double target_dist = sqrt(target_x*target_x + target_y*target_y);  
@@ -115,7 +121,7 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
                         sqrt(spts[X][0]*spts[X][0]+spts[Y][0]*spts[Y][0])/0.02;
     // TODO: calculate prev_acc
     double prev_acc = 0.0;
-    cout << prev_x << " " << prev_y << " " << prev_speed << " " << prev_acc << endl;
+    //cout << prev_x << " " << prev_y << " " << prev_speed << " " << prev_acc << endl;
 
     for (int i = 0; i < 50-reuse_size; i++) {    
         //constant speed
@@ -132,7 +138,7 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
         prev_x = x;
         prev_y = y;
 
-        cout << x << " " << y << " " << prev_speed << " " << prev_acc << endl;
+        //cout << x << " " << y << " " << prev_speed << " " << prev_acc << endl;
 
         //cout << "spline point: " << x << " " << y << endl;
         vector<double> pt = car2global( {x,y}, ref);
@@ -147,7 +153,7 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     this->t[X] = next_path[X];
     this->t[Y] = next_path[Y];
 
-    cout << this->t[X].size() << endl;
+    //cout << this->t[X].size() << endl;
 
     return next_path;
 

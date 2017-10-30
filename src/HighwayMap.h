@@ -25,6 +25,7 @@ private:
     double speed_limit;
 
     // max s value for a circular track
+    bool circular;
     double wrap;
 
 
@@ -52,15 +53,15 @@ public:
     // Load highway map waypoints from a file
     bool load_map(string filename);
 
-    void set_n_lanes(int n) { n_lanes = n; }
-    void set_speed_limit_mph(double mph) { speed_limit = mph / 2.239; }
-    void set_circular(double max_s) { wrap = wrap; }
+    void set_n_lanes(int n) { this->n_lanes = n; }
+    void set_speed_limit_mph(double mph) { this->speed_limit = mph / 2.239; }
+    void set_circular(double max_s) { this->circular = true; this->wrap = max_s; }
 
     int get_n_lanes() const { return n_lanes; }
     int get_lane(double d) const { return int(d/this->lane_width); }
     double get_lane_center(int lane) const { return lane * this->lane_width + this->lane_width/2; }
     double get_speed_limit() const { return speed_limit; }
-    double get_safety_distance() const { return speed_limit * .75; }
+    double get_safety_distance() const { return speed_limit * 1.5; }
     bool is_circular() const { return fabs(wrap) < 1; }
   
     // Convert a Frenet (s,d) position to Cartesian (x,y) position 

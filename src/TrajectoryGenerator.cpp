@@ -118,6 +118,8 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
         if (car.state != Vehicle::VehicleState::START) {
             // accelerate/decelerate  
             acc = acc1(max_acc, prev_speed, car.target_speed);
+            if (prev_speed > car.target_speed && acc > 0.0)
+                acc = 0.0;
             x = prev_x + prev_speed * .02 + .5 * .004 * acc;
             y = sp(x);
             prev_speed = sqrt((x-prev_x)*(x-prev_x) + (y-prev_y)*(y-prev_y))/.02;

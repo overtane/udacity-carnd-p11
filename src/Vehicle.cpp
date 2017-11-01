@@ -256,12 +256,12 @@ double Vehicle::calculate_cost(const Vehicle::Estimate &est) const
     // Collision costs
     // Penalize if vehicles are too close
     cost = 0.0;
-    if (free_space_in_front < 5)
+    if (free_space_in_front < 6.5)
         cost += COLLISION;
     else if (free_space_in_front < safety_margin * .25)
         cost += DANGER;
 
-    if (free_space_at_behind < 5)
+    if (free_space_at_behind < 6.5)
         cost += COLLISION;
 
     //cout << "Collision cost: " << cost << endl;
@@ -328,8 +328,9 @@ void Vehicle::update_state() {
 void Vehicle::realize_state(VehicleState new_state)
 {
     double free_space = 0.0;
-    double safety_margin = this->route->get_safety_distance();
-    double max_speed = route->get_speed_limit() - 0.25;
+    double safety_margin = min(this->route->get_safety_distance(),
+                               this->speed * 1.5);
+    double max_speed = route->get_speed_limit() - 0.15;
 
     switch(new_state) {
 
@@ -337,6 +338,7 @@ void Vehicle::realize_state(VehicleState new_state)
             this->target_speed += 0.2;
             this->target_lane = this->lane;   
             break;
+
         case VehicleState::KEEP_LANE: {
             free_space = this->free_space_in_front(this->lane);
 
@@ -353,7 +355,7 @@ void Vehicle::realize_state(VehicleState new_state)
             
             this->target_lane = this->lane; 
             break;
-       }
+        }
 
         case VehicleState::CHANGE_LANE_LEFT:
             this->target_lane = this->lane - 1;

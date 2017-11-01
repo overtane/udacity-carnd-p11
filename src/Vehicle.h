@@ -31,6 +31,13 @@ private:
         vector<double> at_behind;
     };
 
+    struct Estimate {
+        int lane;
+        double s;
+        double speed;
+        VehicleState state;
+    };
+
 protected:
 
     VehicleState state; // vehicle state
@@ -54,6 +61,8 @@ private:
 
     TrajectoryGenerator *tg;
 
+    vector<vector<enum VehicleState>> next_states; // possible successor states
+
 private:
 
     // update environment vector
@@ -63,14 +72,13 @@ private:
 
     double speed_in_front(int lane) const;
     double free_space_in_front(int lane) const;
-
     double free_space_at_behind(int lane) const;
         
-    void realize_keep_lane();
+    void realize_state(VehicleState state);
 
-    void realize_change_lane_left();
-
-    void realize_change_lane_right();
+    double calculate_cost(const Estimate &) const;
+  
+    Estimate make_estimate(VehicleState, double time) const;
 
 public:
 

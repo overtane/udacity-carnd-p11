@@ -17,7 +17,8 @@ using std::log;
 using tk::spline;
 
 
-static double acc(double max_acc, double speed, double target_speed)
+// logarithmic acceleration, with max acc in the beginning
+static double acc1(double max_acc, double speed, double target_speed)
 {
   // TODO: rework this
   if (fabs(speed) < 1)
@@ -82,20 +83,20 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     int target_lane = car.target_lane;
 
     double center = route->get_lane_center(target_lane); 
-    if (target_lane == 0)
-        center +=.4;
-    else if (target_lane == route->get_n_lanes())
-        center -=.4;
+    //if (target_lane == 0)
+    //    center +=.4;
+    //else if (target_lane == route->get_n_lanes())
+    //    center -=.4;
     //cout << "car:" << car.sd[0] << ", " << car.sd[1] << endl;
 
-    vector<double> next0 = route->frenet2cartesian( {car.sd[0]+45, center} );
+    vector<double> next0 = route->frenet2cartesian( {car.sd[0]+40, center} );
     //cout << next0[X] << " " << next0[Y] << endl;
     next0 = global2car(next0, ref);
     //cout << next0[X] << " " << next0[Y] << endl;
     spts[X].push_back(next0[X]);
     spts[Y].push_back(next0[Y]);
 
-    vector<double> next1 = route->frenet2cartesian( {car.sd[0]+90, center});
+    vector<double> next1 = route->frenet2cartesian( {car.sd[0]+80, center});
     //cout << next1[X] << " " << next1[Y] << endl;
     next1 = global2car(next1, ref);
     //cout << next1[X] << " " << next1[Y] << endl;
@@ -105,10 +106,10 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     spline sp;
     sp.set_points(spts[X], spts[Y]);
 
-    //cout << "---" << endl;
+    cout << "Target speed:" << car.target_speed << endl;
 
     // spline spacing
-    double target_x = 45.0;
+    double target_x = 40.0;
     double target_y = sp(target_x);
         // note: straight line distance
     double target_dist = sqrt(target_x*target_x + target_y*target_y);  
@@ -120,7 +121,7 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     double prev_speed = (path_size<2) ? car.speed : 
                         sqrt(spts[X][0]*spts[X][0]+spts[Y][0]*spts[Y][0])/0.02;
     // TODO: calculate prev_acc
-    double prev_acc = 0.0;
+    double acc = 0.0;
     //cout << prev_x << " " << prev_y << " " << prev_speed << " " << prev_acc << endl;
 
     for (int i = 0; i < 50-reuse_size; i++) {    
@@ -128,13 +129,20 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
         //double N = target_dist/(.02*car.target_speed); // distance for 20ms at 48 MPH
         //double x = prev_x + target_x/N;
         //double y = sp(x);
+        double x, y;
 
-        // accelerate/decelerate
-        prev_acc = acc(max_acc, prev_speed, car.target_speed);
-        double x = prev_x + prev_speed * .02 + .5 * .004 * prev_acc;
-        double y = sp(x);
-
-        prev_speed = sqrt((x-prev_x)*(x-prev_x) + (y-prev_y)*(y-prev_y))/.02; 
+        if (car.state != Vehicle::VehicleState::START) {
+            // accelerate/decelerate  
+            acc = acc1(max_acc, prev_speed, car.target_speed);
+            x = prev_x + prev_speed * .02 + .5 * .004 * acc;
+            y = sp(x);
+            prev_speed = sqrt((x-prev_x)*(x-prev_x) + (y-prev_y)*(y-prev_y))/.02;
+        } else {
+            //constant speed
+            double N = target_dist/(.02*car.target_speed);
+            x = prev_x + target_x/N;
+            y = sp(x);
+        }
         prev_x = x;
         prev_y = y;
 

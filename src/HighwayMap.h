@@ -28,7 +28,6 @@ private:
     bool circular;
     double wrap;
 
-
     // Indices to waypoints and spl vectors
     enum WP_Indices { Xi, Yi, Si, Dxi, Dyi };
  
@@ -62,7 +61,7 @@ public:
     double get_lane_center(int lane) const { return lane * this->lane_width + this->lane_width/2; }
     double get_speed_limit() const { return speed_limit; }
     double get_safety_distance() const { return speed_limit * 1.5; }
-    bool is_circular() const { return fabs(wrap) < 1; }
+    bool is_circular() const { return circular; }
   
     // Convert a Frenet (s,d) position to Cartesian (x,y) position 
     vector<double> frenet2cartesian(const vector<double> frenet_position) const;

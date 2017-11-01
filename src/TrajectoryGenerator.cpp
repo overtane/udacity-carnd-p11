@@ -36,12 +36,12 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     const int Y = 1;
 
     // initialize next path with remaining points from previous path
-    //vector<vector<double>> next_path {prev_path[X], prev_path[Y]};
     vector<vector<double>> next_path(2);
 
     Pos ref; // reference position for coordinate transformation
     int path_size = prev_path[X].size();
-    int reuse_size = min(10,path_size); // amount to reuse from previous trajectory
+    // amount to reuse from previous trajectory
+    int reuse_size = min(10,path_size);
 
     // We reuse max 10 points of previous path
     // - This gives reaction time of 0.2s
@@ -51,14 +51,11 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     for (int i = first_reuse; i<t_size && i<first_reuse+reuse_size; i++) {
         next_path[X].push_back(this->t[X][i]);
         next_path[Y].push_back(this->t[Y][i]);
-        //cout << "old point: " << this->t[X][i] << " " << this->t[Y][i] << endl;
     } 
-
-    //cout << path_size << " " << reuse_size << endl;
 
     vector<vector<double>> spts(2); // spline points
 
-    // points for spline generation
+    // starting points for spline generation
     if (path_size < 2) {
         ref.push_back(car.xy[X]);
         ref.push_back(car.xy[Y]);
@@ -83,26 +80,18 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     int target_lane = car.target_lane;
 
     double center = route->get_lane_center(target_lane); 
-    //if (target_lane == 0)
-    //    center +=.4;
-    //else if (target_lane == route->get_n_lanes())
-    //    center -=.4;
-    //cout << "car:" << car.sd[0] << ", " << car.sd[1] << endl;
 
     vector<double> next0 = route->frenet2cartesian( {car.sd[0]+40, center} );
-    //cout << next0[X] << " " << next0[Y] << endl;
     next0 = global2car(next0, ref);
-    //cout << next0[X] << " " << next0[Y] << endl;
     spts[X].push_back(next0[X]);
     spts[Y].push_back(next0[Y]);
 
     vector<double> next1 = route->frenet2cartesian( {car.sd[0]+80, center});
-    //cout << next1[X] << " " << next1[Y] << endl;
     next1 = global2car(next1, ref);
-    //cout << next1[X] << " " << next1[Y] << endl;
     spts[X].push_back(next1[X]);
     spts[Y].push_back(next1[Y]);
 
+    // generate spline here
     spline sp;
     sp.set_points(spts[X], spts[Y]);
 
@@ -111,7 +100,7 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     // spline spacing
     double target_x = 40.0;
     double target_y = sp(target_x);
-        // note: straight line distance
+    // note: straight line distance
     double target_dist = sqrt(target_x*target_x + target_y*target_y);  
 
     // add new points to next path
@@ -122,13 +111,8 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
                         sqrt(spts[X][0]*spts[X][0]+spts[Y][0]*spts[Y][0])/0.02;
     // TODO: calculate prev_acc
     double acc = 0.0;
-    //cout << prev_x << " " << prev_y << " " << prev_speed << " " << prev_acc << endl;
 
     for (int i = 0; i < 50-reuse_size; i++) {    
-        //constant speed
-        //double N = target_dist/(.02*car.target_speed); // distance for 20ms at 48 MPH
-        //double x = prev_x + target_x/N;
-        //double y = sp(x);
         double x, y;
 
         if (car.state != Vehicle::VehicleState::START) {
@@ -143,15 +127,11 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
             x = prev_x + target_x/N;
             y = sp(x);
         }
+
         prev_x = x;
         prev_y = y;
 
-        //cout << x << " " << y << " " << prev_speed << " " << prev_acc << endl;
-
-        //cout << "spline point: " << x << " " << y << endl;
         vector<double> pt = car2global( {x,y}, ref);
-        //cout << "path point: " << pt[X] << " " << pt[Y] << endl;
-
         next_path[X].push_back(pt[X]);
         next_path[Y].push_back(pt[Y]);
     }
@@ -161,9 +141,6 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     this->t[X] = next_path[X];
     this->t[Y] = next_path[Y];
 
-    //cout << this->t[X].size() << endl;
-
     return next_path;
-
 }
 

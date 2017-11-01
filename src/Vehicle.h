@@ -7,7 +7,7 @@
 
 using std::vector;
 
-class HighwayMap; // This should be a generic route class
+class HighwayMap; // Note: This should be a generic route class
 class TrajectoryGenerator;
 
 class Vehicle {
@@ -40,7 +40,7 @@ private:
 
 protected:
 
-    VehicleState state; // vehicle state
+    VehicleState state; // current vehicle state
 
     vector<double> xy; // global Cartesian position
     vector<double> sd; // Frenet position
@@ -50,35 +50,53 @@ protected:
 
     int lane; // current lane
 
-    double target_speed; // latest behavior planning decisions
+    // latest behavior planning decisions
+    double target_speed;
     int target_lane;
  
 private:
 
-    vector<LaneState> env; // nearest vehicles at behind and in the front
+    // Nearest vehicles at behind and in the front of the ego vehicle
+    vector<LaneState> env; 
 
     HighwayMap const *route; // current route to follow
 
-    TrajectoryGenerator *tg;
 
-    vector<vector<enum VehicleState>> next_states; // possible successor states
+    TrajectoryGenerator *tg; 
+
+    // all possible successor states of a vehicle state
+    vector<vector<enum VehicleState>> next_states; 
 
 private:
-
-    // update environment vector
-    // environment vector contains the closest vehicles in the 
+ 
+    // ---
+    // Update environment (prediction) vector
+    // The environment vector contains the closest vehicles in the 
     // front and at behind of the ego vehicle for each lane
     void update_env(const vector<vector<double>> &sensor_fusion);
 
+    // ---
+    // Helpers for behavior planning
+    // These function 
     double speed_in_front(int lane) const;
     double free_space_in_front(int lane) const;
     double free_space_at_behind(int lane) const;
-        
+
+    // ---
+    // State realizer
+    // Function calculates target speed and lane for
+    // trajectory generator input
     void realize_state(VehicleState state);
 
+    // --
+    // Calculate the cost a state change
     double calculate_cost(const Estimate &) const;
   
-    Estimate make_estimate(VehicleState, double time) const;
+    // --
+    // Make rough trajectory estimation for a state within 
+    // the behavior planning horizon. Behavior planner 
+    // uses the estimate for cost calculations.
+    Estimate make_estimate(VehicleState, double horizon) const;
 
 public:
 
@@ -86,18 +104,21 @@ public:
 
     ~Vehicle() {}
 
-    VehicleState get_state() const { return KEEP_LANE; }
-
     void set_route(HighwayMap const *route) { this->route = route; } 
     void set_trajectory_generator(TrajectoryGenerator *tg) { this->tg = tg; } 
 
-    // update vehicle and environment status 
-    void update_status(const Telemetry &t, const vector<vector<double>> &sensor_fusion);
+    // ---
+    // Update vehicle and environment status with data from 
+    // localization and sensor fusion
+    void update_status(const Telemetry &t, 
+        const vector<vector<double>> &sensor_fusion);
 
-    // behavior planning
+    // ---
+    // Behavior planning
     void update_state();
 
-    // generate next trajectory
+    // ---
+    // Generate next trajectory
     vector<vector<double>> new_trajectory(vector<vector<double>> prev_path);
 };
 

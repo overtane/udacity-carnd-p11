@@ -12,6 +12,10 @@
 using std::ifstream;
 using std::istringstream; 
 
+// Do not use smoothing - it may overshoot slightly sometimes
+const bool SMOOTH_POINTS = false;
+
+
 HighwayMap::HighwayMap(string filename, int n_lanes, double lane_width, double speed_limit) : 
     n_lanes(n_lanes),
     lane_width(lane_width),
@@ -63,15 +67,12 @@ vector<double> HighwayMap::frenet2cartesian(const vector<double> sd) const
     double s = (this->circular) ? fmod(sd[0],this->wrap) : sd[0];
     double d = sd[1];
 
-    //std::cout << s << " " << d << " " << this->wrap <<std::endl;
-
-    //double x = spl[Xi](s) + spl[Dxi](s) * d; 
-    //double y = spl[Yi](s) + spl[Dyi](s) * d; 
-    //return { x, y };
-
-    return getXY(s, d, waypoints[Si], waypoints[Xi], waypoints[Yi]);
-
-
+    if (SMOOTH_POINTS) {
+        double x = spl[Xi](s) + spl[Dxi](s) * d; 
+        double y = spl[Yi](s) + spl[Dyi](s) * d; 
+        return { x, y };
+    } else
+        return getXY(s, d, waypoints[Si], waypoints[Xi], waypoints[Yi]);
 }
 
 

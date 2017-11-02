@@ -97,6 +97,8 @@ The path planner is designed for a very limited simulator environment. In order 
 - Also, more fine grained control of speed and path could be achieved by adding motion controller (PID or MPC) after the trajectory generator.
 
 
+<img src="./images/simu2.png"  width="800">
+
 ## Building and running
 
 ### Simulator.
@@ -180,5 +182,4 @@ the path has processed since last time.
     git checkout e94b6e1
     ```
 
-<img src="./images/simur2.png"  width="800">
 

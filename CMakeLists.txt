@@ -18,8 +18,10 @@ include_directories(src/Eigen-3.3)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin") 
 
+include_directories(/opt/local/include)
 include_directories(/usr/local/include)
 include_directories(/usr/local/opt/openssl/include)
+link_directories(/opt/local/lib)
 link_directories(/usr/local/lib)
 link_directories(/usr/local/opt/openssl/lib)
 link_directories(/usr/local/Cellar/libuv/1.11.0/lib)

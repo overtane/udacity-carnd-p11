@@ -77,10 +77,10 @@ private:
 
     // ---
     // Helpers for behavior planning
-    // These function 
     double speed_in_front(int lane) const;
     double free_space_in_front(int lane) const;
     double free_space_at_behind(int lane) const;
+    double safe_speed(int lane) const;
 
     // ---
     // State realizer

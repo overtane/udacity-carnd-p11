@@ -34,6 +34,30 @@ Vehicle::Vehicle() :
     next_states.push_back({STOP});                                                 // STOP 
 }   
 
+
+double Vehicle::safe_speed(int lane) const
+{
+    double free_space = this->free_space_in_front(lane);
+    double speed_in_front = this->speed_in_front(lane);  
+    double safety_margin = min(this->route->get_safety_distance(),
+                               speed_in_front * 1.5);
+    double max_speed = route->get_speed_limit() - 0.2;
+    double speed = 0.0;
+
+    if (free_space > safety_margin) {
+        // accelerate and keep max speed
+        speed = max_speed;
+    } else if (free_space > safety_margin - safety_margin/3) {
+        // decelerate and follow the car in the front        
+        speed = speed_in_front;  
+    } else {
+        // let the free space grow
+        speed = speed_in_front - 3.0;
+    }
+
+    return speed;
+}
+
 double Vehicle::speed_in_front(int lane) const
 {
     double speed;
@@ -202,7 +226,7 @@ double Vehicle::calculate_cost(const Vehicle::Estimate &est) const
         if (this->speed <= 10.0)
             cost = -COMFORT;
         else
-            cost = 2 * COMFORT;
+            cost = 5 * COMFORT;
     tot_cost += cost;
 
     // Keep lane cost
@@ -210,7 +234,7 @@ double Vehicle::calculate_cost(const Vehicle::Estimate &est) const
     // (all lanes have traffic ahead)
     cost = 0.0;
     if (est.lane == this->lane)
-        cost = -EFFICIENCY * 2;
+        cost = -EFFICIENCY * 10;
     tot_cost += cost;
 
 
@@ -228,7 +252,7 @@ double Vehicle::calculate_cost(const Vehicle::Estimate &est) const
        // Penalize low speed on lane
         double speed = this->speed_in_front(est.lane);
         double max_speed = this->route->get_speed_limit();
-        cost = 4 * (max_speed - speed) * EFFICIENCY;
+        cost = 10 * (max_speed - speed) * EFFICIENCY;
         //cout << "Lane speed cost: " << cost << endl;
     }
     tot_cost += cost;
@@ -237,26 +261,23 @@ double Vehicle::calculate_cost(const Vehicle::Estimate &est) const
     // Reward lane change if lane next to this one is fast
     // This should make the vehicle change lanes even if the
     // first lane change is not beneficial
-    /* 
-       TODO: needs more testing
-    cost = 0.0;
-    if (est.state == VehicleState::CHANGE_LANE_LEFT) {
-       int lane = est.lane-1;
-       if (lane>0 && lane<n_lanes)
-           cost = -1 * min(75.0, this->free_space_in_front(lane)) * EFFICIENCY; 
+    /*
+    if (free_space_in_front < safety_margin+10) {
+        cost = 0.0;
+        int lane = est.lane-1;
+        if (lane>=0 && lane<n_lanes)
+            cost = -1 * min(75.0, this->free_space_in_front(lane)) * EFFICIENCY; 
+        lane = est.lane+1;
+        if (lane>=0 && lane<n_lanes)
+            cost = -1 * min(75.0, this->free_space_in_front(lane)) * EFFICIENCY; 
+        tot_cost += cost;
     }
-    if (est.state == VehicleState::CHANGE_LANE_RIGHT) {
-       int lane = est.lane+1;
-       if (lane>0 && lane<n_lanes)
-           cost = -1 * min(75.0, this->free_space_in_front(lane)) * EFFICIENCY; 
-    }
-    tot_cost += cost;
     */
 
     // Collision costs
     // Penalize if vehicles are too close
     cost = 0.0;
-    if (free_space_in_front < 6.5)
+    if (free_space_in_front < 10)
         cost += COLLISION;
     else if (free_space_in_front < safety_margin * .25)
         cost += DANGER;
@@ -307,7 +328,7 @@ void Vehicle::update_state() {
 
             double cost = this->calculate_cost(est);
 
-            cout << "Total cost: " << cost << " for state " << state << endl;
+            cout << "State " << state << " cost: " << cost << endl;
 
             if (cost < min_cost) {
                 min_cost = cost;
@@ -316,21 +337,20 @@ void Vehicle::update_state() {
         }
     }
 
-
-    if (best_state != this->state)
-        cout << best_state << endl;
-
     this->state = best_state;
     this->realize_state(best_state);
+
+    cout << "Target state " << best_state 
+         << ", speed " << this->target_speed 
+         << ", lane " << this->target_lane
+         << endl;
+
+
 }
 
 
 void Vehicle::realize_state(VehicleState new_state)
 {
-    double free_space = 0.0;
-    double safety_margin = min(this->route->get_safety_distance(),
-                               this->speed * 1.5);
-    double max_speed = route->get_speed_limit() - 0.15;
 
     switch(new_state) {
 
@@ -340,44 +360,39 @@ void Vehicle::realize_state(VehicleState new_state)
             break;
 
         case VehicleState::KEEP_LANE: {
-            free_space = this->free_space_in_front(this->lane);
-
-            if (free_space > safety_margin) {
-                // accelerate and keep max speed
-                this->target_speed = max_speed;
-            } else if (free_space > safety_margin - safety_margin/3) {
-                // decelerate and follow the car in the front        
-                this->target_speed = this->speed_in_front(this->lane);  
-            } else {
-                // let the free space grow
-                this->target_speed = this->speed_in_front(this->lane) - 3.0;
-            }
-            
-            this->target_lane = this->lane; 
+            this->target_lane = this->lane;
+            this->target_speed = this->safe_speed(this->target_lane);
             break;
         }
 
         case VehicleState::CHANGE_LANE_LEFT:
             this->target_lane = this->lane - 1;
-            free_space = this->free_space_in_front(this->target_lane);
+            this->target_speed = this->safe_speed(this->target_lane);
+/*
             if (free_space < safety_margin/3)
                 this->target_speed = this->speed_in_front(this->target_lane) - 4.0;
             else
                 this->target_speed = max_speed;
+*/
             break;
 
         case VehicleState::CHANGE_LANE_RIGHT:
             this->target_lane = this->lane + 1;
+            this->target_speed = this->safe_speed(this->target_lane);
+
+/*
             free_space = this->free_space_in_front(this->target_lane);
             if (free_space < safety_margin/3)
                 this->target_speed = this->speed_in_front(this->target_lane) - 4.0;
             else
                 this->target_speed = max_speed;
+*/
             break;
 
         case VehicleState::STOP:
+            // TODO
             this->target_speed = 0;
-            this->target_lane = this->lane;
+            this->target_lane = this->route->get_n_lanes();
             break;
 
         default:

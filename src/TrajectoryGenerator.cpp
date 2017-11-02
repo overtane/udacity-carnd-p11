@@ -95,8 +95,6 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
     spline sp;
     sp.set_points(spts[X], spts[Y]);
 
-    cout << "Target speed:" << car.target_speed << endl;
-
     // spline spacing
     double target_x = 40.0;
     double target_y = sp(target_x);
@@ -118,8 +116,10 @@ vector<vector<double>> TrajectoryGenerator::new_trajectory(
         if (car.state != Vehicle::VehicleState::START) {
             // accelerate/decelerate  
             acc = acc1(max_acc, prev_speed, car.target_speed);
-            if (prev_speed > car.target_speed && acc > 0.0)
+            if (prev_speed > car.target_speed && acc > 0.0) {
                 acc = 0.0;
+                prev_speed = car.target_speed;
+            }
             x = prev_x + prev_speed * .02 + .5 * .004 * acc;
             y = sp(x);
             prev_speed = sqrt((x-prev_x)*(x-prev_x) + (y-prev_y)*(y-prev_y))/.02;
